@@ -8,6 +8,8 @@
 #include <fstream>
 #include <string_view>
 #include <print>
+#include <future>
+#include <iostream>
 
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
@@ -40,12 +42,25 @@ auto LoadPasswords() {
   std::println("{}", password_j.dump());
 }
 
+auto UserInputTask() {
+  while (true) {
+    std::string input{};
+    std::getline(std::cin, input);
+
+    std::println("Processing user input: {}", input);
+  }
+}
+
 }  // namespace
 
 auto main() -> int {
   // load the current passowrds (json) file into memory
   LoadPasswords();
 
-  // wait for user input
-  // -> seems async task -> co-routines but no compiler support i am afraid
+  // set up async tasks:
+  // - one handling user input
+  // - one reacting to user events
+
+  auto user_input_task_f{std::async(std::launch::async, UserInputTask)};
+  user_input_task_f.wait();
 }
