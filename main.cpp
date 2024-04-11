@@ -14,10 +14,13 @@
 #include <nlohmann/json.hpp>
 #include <spdlog/spdlog.h>
 
+// TODO: possibly make everything noexcept for faster code
+
 namespace {
 
 std::string_view constexpr kPasswordFilePath{"/tmp/passwords.json"};
 
+/// Loads current stored passwords from disk to memory for faster in-app access
 auto LoadPasswords() {
   // NOTE: This might seem to be a unnecessary check but this routine is meant to be called rarely (e.g. at start of program) so this check can still be kept as
   // it will not have an performance impact.
