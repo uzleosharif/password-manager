@@ -5,6 +5,13 @@
 // -----------
 // {account -> password} stored as encrypted blob on disk
 
+// Features to do:
+// [x] kill application (x)
+// [ ] show passwords (s)
+// [ ] add password (a)
+// [ ] delete password (d)
+// [ ] encryption of passwords before writing to disk
+
 // NOTE:
 // For inter-thread communication, there are generally 2 possibilities:
 // - Message passing
@@ -165,6 +172,10 @@ auto LaunchTasks() {
   eh_fut.wait();
 }
 
+auto Cleanup() {
+  // TODO: save passwords
+}
+
 }  // namespace
 
 auto main() -> int {
@@ -172,4 +183,6 @@ auto main() -> int {
   Initialize();
 
   LaunchTasks<MessageQueue>();
+
+  Cleanup();
 }
