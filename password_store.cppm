@@ -20,9 +20,10 @@ class PasswordsStore final {
           fmt::format("Please set {} to specify the passwords-store file.",
                       kPasswordsEnvVar)};
     }
+    m_passwords_file_path = passwords_file_path;
 
-    if (std::filesystem::exists(passwords_file_path)) {
-      m_passwords = uzleo::json::Parse(passwords_file_path);
+    if (std::filesystem::exists(m_passwords_file_path)) {
+      m_passwords = uzleo::json::Parse(m_passwords_file_path);
     }
   }
 
@@ -36,12 +37,34 @@ class PasswordsStore final {
     }
   }
 
-  constexpr auto Get(std::string_view key) {
+  [[nodiscard]] constexpr auto Get(std::string_view key) const {
     return m_passwords.GetMap().at(std::string{key}).GetStringView();
   }
 
+  constexpr auto Delete(std::string_view key) {
+    uzleo::json::Json::json_object_t new_passwords{};
+    std::ranges::transform(
+        m_passwords.GetMap() | std::views::filter([key](auto const& kvp) {
+          return (kvp.first != key);
+        }),
+        std::inserter(new_passwords, std::ranges::end(new_passwords)),
+        [](auto const& kvp) -> std::pair<std::string, uzleo::json::Json> {
+          return {kvp.first, uzleo::json::Json{kvp.second.GetStringView()}};
+        });
+
+    m_passwords = uzleo::json::Json{std::move(new_passwords)};
+    Save();
+  }
+
  private:
+  constexpr auto Save() const -> void {
+    std::ofstream file_stream{m_passwords_file_path.data()};
+    file_stream.exceptions(std::ios::failbit | std::ios::badbit);
+    file_stream << fmt::format("{}", m_passwords);
+  }
+
   uzleo::json::Json m_passwords{std::monostate{}};
+  std::string_view m_passwords_file_path;
 };
 
 }  // namespace pm

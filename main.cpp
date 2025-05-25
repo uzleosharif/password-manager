@@ -31,7 +31,7 @@ auto main(int argc, char const** argv)
   } else if (command == "list" and argc == 2) {
     password_store.List();
   } else if (command == "delete" and argc == 3) {
-    //
+    password_store.Delete(argv_span[2]);
   } else {
     fmt::println("ERROR: invalid cli arguments.");
     return 2;
