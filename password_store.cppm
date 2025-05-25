@@ -1,4 +1,5 @@
 
+// SPDX-License-Identifier: MIT
 
 export module password_store;
 

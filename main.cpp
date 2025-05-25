@@ -1,4 +1,6 @@
 
+// SPDX-License_Identifier: MIT
+
 import password_store;
 import std;
 import fmt;
