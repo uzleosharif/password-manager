@@ -33,6 +33,10 @@ class PasswordsStore final {
     }
   }
 
+  constexpr auto Get(std::string_view key) {
+    return m_passwords.GetMap().at(std::string{key}).GetStringView();
+  }
+
  private:
   uzleo::json::Json m_passwords{std::monostate{}};
 };
