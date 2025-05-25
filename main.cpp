@@ -1,20 +1,21 @@
 
-
-import std;
 import password_store;
+import std;
+import fmt;
 
 auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
   if (argc < 2) {
-    std::println("Usage:");
-    std::println(" add <key> <password>");
-    std::println(" get <key>");
-    std::println(" list");
-    std::println(" delete <key>");
+    fmt::println("Usage:");
+    fmt::println(" add <key> <password>");
+    fmt::println(" get <key>");
+    fmt::println(" list");
+    fmt::println(" delete <key>");
 
     return 1;
   }
 
-  std::filesystem::path const passwords_file_path{"/tmp/dummy_passwords.json"};
+  pm::PasswordsStore ps{};
+  ps.LoadPasswords();
 
   std::string const command{argv[1]};
   if (command == "add" and argc == 4) {
@@ -26,7 +27,7 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
   } else if (command == "delete" and argc == 3) {
     //
   } else {
-    std::println("ERROR: invalid cli arguments.");
+    fmt::println("ERROR: invalid cli arguments.");
     return 2;
   }
 
