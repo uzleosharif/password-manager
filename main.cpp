@@ -3,7 +3,8 @@ import password_store;
 import std;
 import fmt;
 
-auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
+auto main(int argc, char const** argv)
+    -> int {  // NOLINT(bugprone-exception-escape)
   if (argc < 2) {
     fmt::println("Usage:");
     fmt::println(" add <key> <password>");
@@ -13,17 +14,20 @@ auto main(int argc, char* argv[]) -> int {  // NOLINT(bugprone-exception-escape)
 
     return 1;
   }
+  auto argv_span{std::span(argv, argc) |
+                 std::views::transform(
+                     [](char const* arg) { return std::string_view{arg}; })};
 
-  pm::PasswordsStore ps{};
-  ps.LoadPasswords();
+  pm::PasswordsStore password_store{};
+  password_store.Load();
 
-  std::string const command{argv[1]};
+  auto command{argv_span[1]};
   if (command == "add" and argc == 4) {
     //
   } else if (command == "get" and argc == 3) {
     //
   } else if (command == "list" and argc == 2) {
-    //
+    password_store.List();
   } else if (command == "delete" and argc == 3) {
     //
   } else {

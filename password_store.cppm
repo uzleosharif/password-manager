@@ -4,12 +4,13 @@ export module password_store;
 
 import uzleo.json;
 import std;
+import fmt;
 
 export namespace pm {
 
 class PasswordsStore final {
  public:
-  auto LoadPasswords() {
+  constexpr auto Load() {
     auto const* passwords_file_path{std::getenv("UPM_PASSWORDS_FILE_PATH")};
     if (passwords_file_path == nullptr) {
       throw std::invalid_argument{
@@ -19,6 +20,16 @@ class PasswordsStore final {
 
     if (std::filesystem::exists(passwords_file_path)) {
       m_passwords = uzleo::json::Parse(passwords_file_path);
+    }
+  }
+
+  constexpr auto List() const {
+    if (m_passwords.IsType<std::monostate>()) {
+      fmt::println("{}", m_passwords);
+    } else {
+      for (auto const& [key, password] : m_passwords.GetMap()) {
+        fmt::println("{} : {}", key, password.GetStringView());
+      }
     }
   }
 
