@@ -25,7 +25,7 @@ auto main(int argc, char const** argv)
 
   auto command{argv_span[1]};
   if (command == "add" and argc == 4) {
-    //
+    password_store.Add(argv_span[2], argv_span[3]);
   } else if (command == "get" and argc == 3) {
     fmt::println("{}", password_store.Get(argv_span[2]));
   } else if (command == "list" and argc == 2) {
