@@ -12,11 +12,13 @@ export namespace pm {
 class PasswordsStore final {
  public:
   constexpr auto Load() {
-    auto const* passwords_file_path{std::getenv("UPM_PASSWORDS_FILE_PATH")};
+    std::string_view constexpr kPasswordsEnvVar{"UPM_PASSWORDS_FILE_PATH"};
+
+    auto const* passwords_file_path{std::getenv(kPasswordsEnvVar.data())};
     if (passwords_file_path == nullptr) {
       throw std::invalid_argument{
-          "Please set UPM_PASSWORDS_FILE_PATH to "
-          "specify the passwords-store file."};
+          fmt::format("Please set {} to specify the passwords-store file.",
+                      kPasswordsEnvVar)};
     }
 
     if (std::filesystem::exists(passwords_file_path)) {
