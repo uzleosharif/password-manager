@@ -1,7 +1,6 @@
-# Initialized with clang-format 15.0.7:
-#   clang-format -style=google -dump-config > .clang-format
----
+
 BasedOnStyle: Google
-ColumnLimit: 160
-SortIncludes: false
+ColumnLimit: 80
+PointerAlignment: Left
 DerivePointerAlignment: false
+AllowShortFunctionsOnASingleLine: None

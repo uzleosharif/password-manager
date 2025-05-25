@@ -4,6 +4,6 @@
     "password_store.cppm": [],
     "main.cpp": ["password_store.cppm"]
   },
-  "imp": ["std"],
+  "imp": ["std", "uzleo.json", "fmt"],
   "e": "upm"
 }
