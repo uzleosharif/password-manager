@@ -11,15 +11,7 @@ export namespace pm {
 
 class PasswordsStore final {
  public:
-  constexpr auto Load() {
-    std::string_view constexpr kPasswordsEnvVar{"UPM_PASSWORDS_FILE_PATH"};
-
-    auto const* passwords_file_path{std::getenv(kPasswordsEnvVar.data())};
-    if (passwords_file_path == nullptr) {
-      throw std::invalid_argument{
-          fmt::format("Please set {} to specify the passwords-store file.",
-                      kPasswordsEnvVar)};
-    }
+  constexpr auto Load(std::string_view passwords_file_path) {
     m_passwords_file_path = passwords_file_path;
 
     if (std::filesystem::exists(m_passwords_file_path)) {
