@@ -11,12 +11,9 @@ export namespace pm {
 
 class PasswordsStore final {
  public:
-  constexpr auto Load(std::string_view passwords_file_path) {
-    m_passwords_file_path = passwords_file_path;
-
-    if (std::filesystem::exists(m_passwords_file_path)) {
-      m_passwords = uzleo::json::Parse(m_passwords_file_path);
-    }
+  constexpr explicit PasswordsStore(std::string_view passwords_file_path)
+      : m_passwords_file_path{passwords_file_path} {
+    Load(m_passwords_file_path);
   }
 
   constexpr auto List() const {
@@ -63,6 +60,14 @@ class PasswordsStore final {
   }
 
  private:
+  constexpr auto Load(std::string_view passwords_file_path) -> void {
+    m_passwords_file_path = passwords_file_path;
+
+    if (std::filesystem::exists(m_passwords_file_path)) {
+      m_passwords = uzleo::json::Parse(m_passwords_file_path);
+    }
+  }
+
   constexpr auto Save() const -> void {
     std::ofstream file_stream{m_passwords_file_path.data()};
     file_stream.exceptions(std::ios::failbit | std::ios::badbit);

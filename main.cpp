@@ -51,10 +51,8 @@ auto PromptMasterPassword() {
   return password;
 }
 
-auto Authorize(std::string_view master_password) {
+auto ExtractPasswordFilePath() -> std::string_view {
   std::string_view constexpr kPasswordsEnvVar{"UPM_PASSWORDS_FILE_PATH"};
-
-  Context context{};
 
   auto const* passwords_file_path{std::getenv(kPasswordsEnvVar.data())};
   if (passwords_file_path == nullptr) {
@@ -62,14 +60,20 @@ auto Authorize(std::string_view master_password) {
         fmt::format("Please set {} to specify the passwords-store file.",
                     kPasswordsEnvVar)};
   }
-  context.passwords_file_path = passwords_file_path;
+
+  return passwords_file_path;
+}
+
+auto Authorize(std::string_view master_password) {
+  Context context{};
+
+  context.passwords_file_path = ExtractPasswordFilePath();
 
   return context;
 }
 
 auto ProcessInput(auto args_view, Context const& auth_context) {
-  pm::PasswordsStore password_store{};
-  password_store.Load(auth_context.passwords_file_path);
+  pm::PasswordsStore password_store{auth_context.passwords_file_path};
 
   auto command{args_view[1]};
   if (command == "add" and rng::size(args_view) == 4) {
