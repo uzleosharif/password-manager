@@ -3,6 +3,13 @@
 
 # NOTE: somehow clangd-v20.1.2 does not like bugprone-* checks. Would be nice to enable them back again!
 Checks: >-
-  modernize-*, performance-*, readability-*, clang-analyzer-*, misc-*, portability-*, cppcoreguidelines-*
+  modernize-*, 
+  performance-*, 
+  readability-*, 
+  clang-analyzer-*, 
+  misc-*, 
+  portability-*, 
+  cppcoreguidelines-*,
+  -misc-use-internal-linkage
 FormatStyle: file
 CheckOptions: []

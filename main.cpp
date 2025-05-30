@@ -85,6 +85,7 @@ auto main(int argc, char const** argv) -> int {
     ProcessInput(GetArgs(argc, argv));
   } catch (std::exception const& exception) {
     fmt::println("Exception: {}", exception.what());
+    return 1;
   }
 
   return 0;
