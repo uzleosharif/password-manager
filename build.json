@@ -1,8 +1,8 @@
 
 {
   "src": { 
-    "password_store.cppm": [],
-    "main.cpp": ["password_store.cppm"]
+    "password_manager.cppm": [],
+    "main.cpp": ["password_manager.cppm"]
   },
   "imp": ["std", "uzleo.json", "fmt"],
   "e": "upm"

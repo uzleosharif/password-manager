@@ -1,7 +1,7 @@
 
 // SPDX-License-Identifier: MIT
 
-export module password_store;
+export module password_manager;
 
 import uzleo.json;
 import std;
@@ -9,10 +9,21 @@ import fmt;
 
 export namespace pm {
 
+struct Context {
+  std::string_view passwords_file_path;
+};
+
+auto Authorize(std::string_view master_password,
+               std::string_view passwords_file_path) {
+  Context context{.passwords_file_path = passwords_file_path};
+
+  return context;
+}
+
 class PasswordsStore final {
  public:
-  constexpr explicit PasswordsStore(std::string_view passwords_file_path)
-      : m_passwords_file_path{passwords_file_path} {
+  constexpr explicit PasswordsStore(Context const& context)
+      : m_passwords_file_path{context.passwords_file_path} {
     Load(m_passwords_file_path);
   }
 

@@ -1,7 +1,7 @@
 
 // SPDX-License_Identifier: MIT
 
-import password_store;
+import password_manager;
 import std;
 import fmt;
 
@@ -11,10 +11,6 @@ import fmt;
 namespace rng = std::ranges;
 
 namespace {
-
-struct Context {
-  std::string_view passwords_file_path;
-};
 
 auto GetArgs(int argc, char const** argv) {
   auto args_view{std::span(argv, argc) |
@@ -64,16 +60,9 @@ auto ExtractPasswordFilePath() -> std::string_view {
   return passwords_file_path;
 }
 
-auto Authorize(std::string_view master_password) {
-  Context context{};
-
-  context.passwords_file_path = ExtractPasswordFilePath();
-
-  return context;
-}
-
-auto ProcessInput(auto args_view, Context const& auth_context) {
-  pm::PasswordsStore password_store{auth_context.passwords_file_path};
+auto ProcessInput(auto args_view) {
+  pm::PasswordsStore password_store{
+      pm::Authorize(PromptMasterPassword(), ExtractPasswordFilePath())};
 
   auto command{args_view[1]};
   if (command == "add" and rng::size(args_view) == 4) {
@@ -93,7 +82,7 @@ auto ProcessInput(auto args_view, Context const& auth_context) {
 
 auto main(int argc, char const** argv) -> int {
   try {
-    ProcessInput(GetArgs(argc, argv), Authorize(PromptMasterPassword()));
+    ProcessInput(GetArgs(argc, argv));
   } catch (std::exception const& exception) {
     fmt::println("Exception: {}", exception.what());
   }
