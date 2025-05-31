@@ -19,6 +19,7 @@ namespace rng = std::ranges;
 namespace config {
 
 constexpr std::size_t kSaltLength{crypto_pwhash_SALTBYTES};
+constexpr std::size_t kNonceLength{crypto_secretbox_NONCEBYTES};
 constexpr std::size_t kKeyLength{crypto_secretbox_KEYBYTES};
 
 constexpr auto GetSaltPath(std::string_view passwords_file_path) {
@@ -33,24 +34,45 @@ constexpr auto GetNoncePath(std::string_view passwords_file_path) {
 
 namespace {
 
-auto SaveStringToDisk(std::string_view file_path, std::string_view content) {
-  std::ofstream file_stream{file_path.data()};
-  // TODO(uzleo): make sure file is properly opened, if not throw
-  file_stream.write(content.data(),
-                    static_cast<std::streamsize>(rng::size(content)));
-  // TODO(uzleo): make sure data is written properly, else throw
-}
+template <class Parent>
+class ByteBuffer final : public Parent {
+ public:
+  template <class T>
+  // TODO(uzleo): T should be constrained to be a char type
+  [[nodiscard]] auto GetCConstPtr() const -> T* {
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
+    static_assert(std::is_same_v<std::byte, typename Parent::value_type>,
+                  "ByteBuffer must hold std::byte objects.");
+    // NOTE: byte* to (char-like) T* is safe
+    return reinterpret_cast<T*>(this->data());
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+  }
 
-auto LoadOrGenerateSalt(std::string_view passwords_file_path)
-    -> std::array<std::byte, config::kSaltLength> {
-  std::array<std::byte, config::kSaltLength> salt{};
+  template <class T>
+  // TODO(uzleo): T should be constrained to be a char type
+  [[nodiscard]] auto GetCPtr() -> T* {
+    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
+    static_assert(std::is_same_v<std::byte, typename Parent::value_type>,
+                  "ByteBuffer must hold std::byte objects.");
+    // NOTE: byte* to (char-like) T* is safe
+    return reinterpret_cast<T*>(this->data());
+    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+  }
+};
+
+using salt_t = ByteBuffer<std::array<std::byte, config::kSaltLength>>;
+using nonce_t = ByteBuffer<std::array<std::byte, config::kNonceLength>>;
+using master_key_t = ByteBuffer<std::array<std::byte, config::kKeyLength>>;
+
+auto LoadOrGenerateSalt(std::string_view passwords_file_path) -> salt_t {
+  salt_t salt{};
 
   auto const salt_path{config::GetSaltPath(passwords_file_path)};
   if (std::filesystem::exists(salt_path)) {
     std::ifstream file_stream{salt_path, std::ios::binary};
     rng::copy(
         rng::istream_view<std::uint8_t>{file_stream} |
-            rng::views::take(config::kSaltLength) |
+            rng::views::take(rng::size(salt)) |
             rng::views::transform([](std::uint8_t const value) -> std::byte {
               return std::byte{value};
             }),
@@ -63,30 +85,29 @@ auto LoadOrGenerateSalt(std::string_view passwords_file_path)
       return std::byte{distr(engine)};
     });
 
-    // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
-    static_assert(std::is_same_v<std::byte, decltype(salt)::value_type>,
-                  "salt variable must hold std::byte");
-    // NOTE: byte* to char(like)* is safe
-    std::string_view salt_sv{reinterpret_cast<char const*>(salt.data()),
-                             rng::size(salt)};
-    // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
-    SaveStringToDisk(salt_path, salt_sv);
+    std::ofstream file_stream{salt_path};
+    file_stream.write(salt.GetCConstPtr<char const>(), rng::size(salt));
   }
 
   return salt;
 }
 
-auto LoadOrGenerateNonce(std::string_view passwords_file_path)
-    -> std::uint64_t {
-  std::uint64_t nonce{0};
+auto LoadOrGenerateNonce(std::string_view passwords_file_path) -> nonce_t {
+  nonce_t nonce{};
 
   auto const nonce_path{config::GetNoncePath(passwords_file_path)};
   if (std::filesystem::exists(nonce_path)) {
     std::ifstream file_stream{nonce_path, std::ios::binary};
-    file_stream >> nonce;
+    rng::copy(
+        rng::istream_view<std::uint8_t>{file_stream} |
+            rng::views::take(rng::size(nonce)) |
+            rng::views::transform([](std::uint8_t const value) -> std::byte {
+              return std::byte{value};
+            }),
+        rng::begin(nonce));
   } else {
     std::ofstream file_stream{nonce_path};
-    file_stream << nonce;
+    file_stream.write(nonce.GetCConstPtr<char const>(), rng::size(nonce));
   }
 
   return nonce;
@@ -98,9 +119,9 @@ export namespace pm {
 
 struct Context {
   std::string_view passwords_file_path;
-  std::array<std::byte, config::kSaltLength> salt;
-  std::uint64_t nonce{0};
-  std::array<std::byte, config::kKeyLength> key;
+  salt_t salt;
+  nonce_t nonce;
+  master_key_t master_key;
 };
 
 auto Authorize(std::string_view master_password,
@@ -110,20 +131,13 @@ auto Authorize(std::string_view master_password,
   context.salt = LoadOrGenerateSalt(passwords_file_path);
   context.nonce = LoadOrGenerateNonce(passwords_file_path);
 
-  // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
-  static_assert(std::is_same_v<std::byte, decltype(context.key)::value_type>,
-                "salt variable must hold std::byte");
-  static_assert(std::is_same_v<std::byte, decltype(context.salt)::value_type>,
-                "salt variable must hold std::byte");
-  // NOTE: byte* to char(like)* is safe
   int pwhash_status{crypto_pwhash(
-      reinterpret_cast<unsigned char*>(context.key.data()),
-      rng::size(context.key), master_password.data(),
+      context.master_key.GetCPtr<unsigned char>(),
+      rng::size(context.master_key), master_password.data(),
       rng::size(master_password),
-      reinterpret_cast<unsigned char const*>(context.salt.data()),
+      context.salt.GetCConstPtr<unsigned char const>(),
       crypto_pwhash_OPSLIMIT_INTERACTIVE, crypto_pwhash_MEMLIMIT_INTERACTIVE,
       crypto_pwhash_ALG_DEFAULT)};
-  // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
   if (pwhash_status != 0) {
     throw std::runtime_error{fmt::format(
         "Key derivation failed with pwhash_status = {}", pwhash_status)};
@@ -135,11 +149,16 @@ auto Authorize(std::string_view master_password,
 class PasswordsStore final {
  public:
   constexpr explicit PasswordsStore(Context const& context)
-      : m_passwords_file_path{context.passwords_file_path} {
-    Load();
+      : m_context{context} {
+    if (std::filesystem::exists(m_context.passwords_file_path)) {
+      // decrypt realtext (json) from ciphertext
+      m_passwords = uzleo::json::Parse(m_context.passwords_file_path);
+    } else {
+      Add("foo", "bar");
+    }
   }
 
-  constexpr auto List() const {
+  constexpr auto List() const -> void {
     if (m_passwords.IsType<std::monostate>()) {
       fmt::println("{}", m_passwords);
     } else {
@@ -153,7 +172,7 @@ class PasswordsStore final {
     return m_passwords.GetMap().at(std::string{key}).GetStringView();
   }
 
-  constexpr auto Delete(std::string_view key) {
+  constexpr auto Delete(std::string_view key) -> void {
     uzleo::json::Json::json_object_t new_passwords{};
     std::ranges::transform(
         m_passwords.GetMap() | std::views::filter([key](auto const& kvp) {
@@ -165,10 +184,12 @@ class PasswordsStore final {
         });
 
     m_passwords = uzleo::json::Json{std::move(new_passwords)};
-    SaveStringToDisk(m_passwords_file_path, fmt::format("{}", m_passwords));
+    // TODO(uzleo)
+    // SaveStringToDisk(m_context.passwords_file_path,
+    //                  fmt::format("{}", m_passwords));
   }
 
-  constexpr auto Add(std::string_view key, std::string_view password) {
+  constexpr auto Add(std::string_view key, std::string_view password) -> void {
     uzleo::json::Json::json_object_t new_passwords{};
     std::ranges::transform(
         m_passwords.GetMap(),
@@ -179,18 +200,37 @@ class PasswordsStore final {
     new_passwords.emplace(key, uzleo::json::Json{password});
 
     m_passwords = uzleo::json::Json{std::move(new_passwords)};
-    SaveStringToDisk(m_passwords_file_path, fmt::format("{}", m_passwords));
+    EncryptAndSave();
   }
 
  private:
-  constexpr auto Load() -> void {
-    if (std::filesystem::exists(m_passwords_file_path)) {
-      m_passwords = uzleo::json::Parse(m_passwords_file_path);
-    }
+  constexpr auto EncryptAndSave() -> void {
+    auto const plain_text{fmt::format("{}", m_passwords)};
+    ByteBuffer<std::vector<std::byte>> cipher_text;
+    cipher_text.resize(rng::size(plain_text) + crypto_secretbox_MACBYTES);
+
+    // TODO(uzleo): increment nonce
+    // m_context.nonce++;
+
+    crypto_secretbox_easy(
+        cipher_text.GetCPtr<unsigned char>(),
+        // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
+        // NOTE: <char const*> to <unsigned char const *> is safe
+        reinterpret_cast<unsigned char const*>(plain_text.data()),
+        // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+        rng::size(plain_text),
+        m_context.nonce.GetCConstPtr<unsigned char const>(),
+        m_context.master_key.GetCConstPtr<unsigned char const>());
+
+    std::ofstream file_stream{m_context.passwords_file_path.data(),
+                              std::ios::binary};
+    file_stream.write(cipher_text.GetCConstPtr<char const>(),
+                      static_cast<std::streamsize>(rng::size(cipher_text)));
+    // TODO(uzleo): also save nonce file
   }
 
+  Context m_context{};
   uzleo::json::Json m_passwords{uzleo::json::Json::json_object_t{}};
-  std::string_view m_passwords_file_path;
 };
 
 }  // namespace pm
