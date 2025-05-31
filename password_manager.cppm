@@ -136,7 +136,7 @@ class PasswordsStore final {
  public:
   constexpr explicit PasswordsStore(Context const& context)
       : m_passwords_file_path{context.passwords_file_path} {
-    Load(m_passwords_file_path);
+    Load();
   }
 
   constexpr auto List() const {
@@ -183,9 +183,7 @@ class PasswordsStore final {
   }
 
  private:
-  constexpr auto Load(std::string_view passwords_file_path) -> void {
-    m_passwords_file_path = passwords_file_path;
-
+  constexpr auto Load() -> void {
     if (std::filesystem::exists(m_passwords_file_path)) {
       m_passwords = uzleo::json::Parse(m_passwords_file_path);
     }
