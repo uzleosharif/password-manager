@@ -34,11 +34,23 @@ constexpr auto GetNoncePath(std::string_view passwords_file_path) {
 
 namespace {
 
+auto GenerateRandomByte() -> std::byte {
+  static std::uniform_int_distribution<std::uint8_t> distr{};
+  static std::random_device device{};
+  static std::mt19937 engine{device()};
+  return std::byte{distr(engine)};
+}
+
+template <class T>
+concept CharLike = std::same_as<std::remove_cv_t<T>, char> or
+                   std::same_as<std::remove_cv_t<T>, char8_t> or
+                   std::same_as<std::remove_cv_t<T>, unsigned char> or
+                   std::same_as<std::remove_cv_t<T>, signed char>;
+
 template <class Parent>
 class ByteBuffer final : public Parent {
  public:
-  template <class T>
-  // TODO(uzleo): T should be constrained to be a char type
+  template <CharLike T>
   [[nodiscard]] auto GetCConstPtr() const -> T* {
     // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
     static_assert(std::is_same_v<std::byte, typename Parent::value_type>,
@@ -48,8 +60,7 @@ class ByteBuffer final : public Parent {
     // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
   }
 
-  template <class T>
-  // TODO(uzleo): T should be constrained to be a char type
+  template <CharLike T>
   [[nodiscard]] auto GetCPtr() -> T* {
     // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
     static_assert(std::is_same_v<std::byte, typename Parent::value_type>,
@@ -70,20 +81,9 @@ auto LoadOrGenerateSalt(std::string_view passwords_file_path) -> salt_t {
   auto const salt_path{config::GetSaltPath(passwords_file_path)};
   if (std::filesystem::exists(salt_path)) {
     std::ifstream file_stream{salt_path, std::ios::binary};
-    rng::copy(
-        rng::istream_view<std::uint8_t>{file_stream} |
-            rng::views::take(rng::size(salt)) |
-            rng::views::transform([](std::uint8_t const value) -> std::byte {
-              return std::byte{value};
-            }),
-        rng::begin(salt));
+    file_stream.read(salt.GetCPtr<char>(), rng::size(salt));
   } else {
-    rng::generate(salt, []() -> std::byte {
-      static std::uniform_int_distribution<std::uint8_t> distr{};
-      static std::random_device device{};
-      static std::mt19937 engine{device()};
-      return std::byte{distr(engine)};
-    });
+    rng::generate(salt, GenerateRandomByte);
 
     std::ofstream file_stream{salt_path};
     file_stream.write(salt.GetCConstPtr<char const>(), rng::size(salt));
@@ -98,14 +98,10 @@ auto LoadOrGenerateNonce(std::string_view passwords_file_path) -> nonce_t {
   auto const nonce_path{config::GetNoncePath(passwords_file_path)};
   if (std::filesystem::exists(nonce_path)) {
     std::ifstream file_stream{nonce_path, std::ios::binary};
-    rng::copy(
-        rng::istream_view<std::uint8_t>{file_stream} |
-            rng::views::take(rng::size(nonce)) |
-            rng::views::transform([](std::uint8_t const value) -> std::byte {
-              return std::byte{value};
-            }),
-        rng::begin(nonce));
+    file_stream.read(nonce.GetCPtr<char>(), rng::size(nonce));
   } else {
+    rng::generate(nonce, GenerateRandomByte);
+
     std::ofstream file_stream{nonce_path};
     file_stream.write(nonce.GetCConstPtr<char const>(), rng::size(nonce));
   }
@@ -124,8 +120,13 @@ struct Context {
   master_key_t master_key;
 };
 
+auto format_as(Context const& context) -> std::string {
+  return fmt::format("Context:\n salt: {}\n nonce: {}\n master_key: {}",
+                     context.salt, context.nonce, context.master_key);
+}
+
 auto Authorize(std::string_view master_password,
-               std::string_view passwords_file_path) {
+               std::string_view passwords_file_path) -> Context {
   Context context{};
   context.passwords_file_path = passwords_file_path;
   context.salt = LoadOrGenerateSalt(passwords_file_path);
@@ -151,8 +152,9 @@ class PasswordsStore final {
   constexpr explicit PasswordsStore(Context const& context)
       : m_context{context} {
     if (std::filesystem::exists(m_context.passwords_file_path)) {
-      // decrypt realtext (json) from ciphertext
-      m_passwords = uzleo::json::Parse(m_context.passwords_file_path);
+      auto plain_text{LoadAndDecrypt()};
+      m_passwords = uzleo::json::Parse(std::string_view{
+          plain_text.GetCConstPtr<char const>(), rng::size(plain_text)});
     } else {
       Add("foo", "bar");
     }
@@ -209,10 +211,9 @@ class PasswordsStore final {
     ByteBuffer<std::vector<std::byte>> cipher_text;
     cipher_text.resize(rng::size(plain_text) + crypto_secretbox_MACBYTES);
 
-    // TODO(uzleo): increment nonce
-    // m_context.nonce++;
+    rng::generate(m_context.nonce, GenerateRandomByte);
 
-    crypto_secretbox_easy(
+    auto encryption_status{crypto_secretbox_easy(
         cipher_text.GetCPtr<unsigned char>(),
         // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
         // NOTE: <char const*> to <unsigned char const *> is safe
@@ -220,13 +221,54 @@ class PasswordsStore final {
         // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
         rng::size(plain_text),
         m_context.nonce.GetCConstPtr<unsigned char const>(),
-        m_context.master_key.GetCConstPtr<unsigned char const>());
+        m_context.master_key.GetCConstPtr<unsigned char const>())};
+    if (encryption_status != 0) {
+      throw std::runtime_error(
+          fmt::format("encryption failed with status: {}", encryption_status));
+    }
 
     std::ofstream file_stream{m_context.passwords_file_path.data(),
                               std::ios::binary};
     file_stream.write(cipher_text.GetCConstPtr<char const>(),
                       static_cast<std::streamsize>(rng::size(cipher_text)));
-    // TODO(uzleo): also save nonce file
+    file_stream.close();
+
+    file_stream.open(config::GetNoncePath(m_context.passwords_file_path),
+                     std::ios::binary);
+    file_stream.write(m_context.nonce.GetCConstPtr<char const>(),
+                      static_cast<std::streamsize>(rng::size(m_context.nonce)));
+  }
+
+  [[nodiscard]] constexpr auto LoadAndDecrypt() const
+      -> ByteBuffer<std::vector<std::byte>> {
+    // load cipher-text from disk
+    std::ifstream file_stream{m_context.passwords_file_path.data(),
+                              std::ios::binary bitor std::ios::ate};
+    auto const file_size{file_stream.tellg()};
+    file_stream.seekg(0);
+
+    ByteBuffer<std::vector<std::byte>> cipher_text;
+    cipher_text.resize(file_size);
+    file_stream.read(cipher_text.GetCPtr<char>(), file_size);
+    if (rng::size(cipher_text) < crypto_secretbox_MACBYTES) {
+      throw std::runtime_error{"Ciphertext too short."};
+    }
+
+    // decrypt cipher-text to retrieve plain-text
+    ByteBuffer<std::vector<std::byte>> plain_text;
+    plain_text.resize(rng::size(cipher_text) - crypto_secretbox_MACBYTES);
+
+    auto decrypt_status{crypto_secretbox_open_easy(
+        plain_text.GetCPtr<unsigned char>(),
+        cipher_text.GetCConstPtr<unsigned char const>(), rng::size(cipher_text),
+        m_context.nonce.GetCConstPtr<unsigned char const>(),
+        m_context.master_key.GetCConstPtr<unsigned char const>())};
+    if (decrypt_status != 0) {
+      throw std::runtime_error{
+          fmt::format("Decryption failed with status: {}", decrypt_status)};
+    }
+
+    return plain_text;
   }
 
   Context m_context{};
