@@ -186,9 +186,7 @@ class PasswordsStore final {
         });
 
     m_passwords = uzleo::json::Json{std::move(new_passwords)};
-    // TODO(uzleo)
-    // SaveStringToDisk(m_context.passwords_file_path,
-    //                  fmt::format("{}", m_passwords));
+    EncryptAndSave();
   }
 
   constexpr auto Add(std::string_view key, std::string_view password) -> void {
