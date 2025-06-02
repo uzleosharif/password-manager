@@ -1,5 +1,0 @@
-
-
-[ ] password-store: encrypt/decrypt password-store file
-[ ] command: rename key 
-[ ] command: replace password for a given key

@@ -13,6 +13,7 @@ import fmt;
 
 // TODO(uzleo): do error-handling around file-stream operations (saving,
 // loading)
+// TODO(uzleo): merge salt,nonce,cipher-text into one
 
 namespace rng = std::ranges;
 
