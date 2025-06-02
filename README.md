@@ -61,8 +61,8 @@ build build/upm: link build/main.o build/password_manager.o
 ## Usage
 
 Before running the tool, set the environment-variable `UPM_PASSWORDS_FILE_PATH` 
-to point to the location of password-store file on file-system.
-For example, `export UPM_PASSWORDS_FILE_PATH="/home/.upm/passwords.enc"`.
+to point to the location of encrypted vault file on disk.
+For example, `export UPM_PASSWORDS_FILE_PATH="/home/user/.upm/vault.bin"`.
 
 The password manager is used through command-line arguments:
 
@@ -105,18 +105,32 @@ upm delete <key>
 
 Removes the password entry associated with the specified key.
 
-## Encryption
+### Flow
 
-On first usage, the master-password is set which will be used to encrypt the passwords file.
-The tool works always with three files:
-- password file such as `passwords.enc`
-- salt `passwords.enc.salt`
-- nonce `passwords.enc.nonce`
+On first usage, the tool will prompt for a master password. It derives a
+key from that password plus a randomly generated salt. All data
+(salt, nonce, and ciphertext) is stored together in one file
+(e.g. `vault.bin`).
 
-For machine portability, always make sure to port these three files together!
+- Vault file layout:
+```
+[salt] [nonce] [passwords-map (encrypted)]
+```
 
-All subsequent operations (see above commands) can be used by providing the same password.
-If you forget the master-password, then passwords file can not be decrypted anymore!
+- On first run:
+1. Generate random salt and nonce.
+2. Derive the master key from the salt and user-provided master password.
+3. Encrypt a dummy JSON store under a fresh nonce.
+4. Write `salt || nonce || cipher-text` to `vault.bin`
+
+- On subsequent runs:
+1. Read salt+nonce from the front of `vault.bin`.
+2. Derive the same key from salt+master-password.
+3. Decrypt the remaining ciphertext using that nonce.
+4. After any modification (add/delete), generate a new nonce, re-encrypt
+the JSON, and overwrite `vault.bin` with `salt || nonce || cipher-text`.
+
+If you forget the master password, the vault can not be decrypted.
 
 ## License
 

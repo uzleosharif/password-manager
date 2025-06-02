@@ -13,7 +13,6 @@ import fmt;
 
 // TODO(uzleo): do error-handling around file-stream operations (saving,
 // loading)
-// TODO(uzleo): merge salt,nonce,cipher-text into one
 
 namespace rng = std::ranges;
 
@@ -22,14 +21,6 @@ namespace config {
 constexpr std::size_t kSaltLength{crypto_pwhash_SALTBYTES};
 constexpr std::size_t kNonceLength{crypto_secretbox_NONCEBYTES};
 constexpr std::size_t kKeyLength{crypto_secretbox_KEYBYTES};
-
-constexpr auto GetSaltPath(std::string_view passwords_file_path) {
-  return std::string{passwords_file_path} + ".salt";
-}
-
-constexpr auto GetNoncePath(std::string_view passwords_file_path) {
-  return std::string{passwords_file_path} + ".nonce";
-}
 
 }  // namespace config
 
@@ -76,38 +67,16 @@ using salt_t = ByteBuffer<std::array<std::byte, config::kSaltLength>>;
 using nonce_t = ByteBuffer<std::array<std::byte, config::kNonceLength>>;
 using master_key_t = ByteBuffer<std::array<std::byte, config::kKeyLength>>;
 
-auto LoadOrGenerateSalt(std::string_view passwords_file_path) -> salt_t {
-  salt_t salt{};
-
-  auto const salt_path{config::GetSaltPath(passwords_file_path)};
-  if (std::filesystem::exists(salt_path)) {
-    std::ifstream file_stream{salt_path, std::ios::binary};
+auto LoadOrGenerateSaltAndNonce(std::string_view vault_path, salt_t& salt,
+                                nonce_t& nonce) -> void {
+  if (std::filesystem::exists(vault_path)) {
+    std::ifstream file_stream{vault_path.data(), std::ios::binary};
     file_stream.read(salt.GetCPtr<char>(), rng::size(salt));
-  } else {
-    rng::generate(salt, GenerateRandomByte);
-
-    std::ofstream file_stream{salt_path};
-    file_stream.write(salt.GetCConstPtr<char const>(), rng::size(salt));
-  }
-
-  return salt;
-}
-
-auto LoadOrGenerateNonce(std::string_view passwords_file_path) -> nonce_t {
-  nonce_t nonce{};
-
-  auto const nonce_path{config::GetNoncePath(passwords_file_path)};
-  if (std::filesystem::exists(nonce_path)) {
-    std::ifstream file_stream{nonce_path, std::ios::binary};
     file_stream.read(nonce.GetCPtr<char>(), rng::size(nonce));
   } else {
+    rng::generate(salt, GenerateRandomByte);
     rng::generate(nonce, GenerateRandomByte);
-
-    std::ofstream file_stream{nonce_path};
-    file_stream.write(nonce.GetCConstPtr<char const>(), rng::size(nonce));
   }
-
-  return nonce;
 }
 
 }  // namespace
@@ -115,7 +84,7 @@ auto LoadOrGenerateNonce(std::string_view passwords_file_path) -> nonce_t {
 export namespace pm {
 
 struct Context {
-  std::string_view passwords_file_path;
+  std::string_view vault_path;
   salt_t salt;
   nonce_t nonce;
   master_key_t master_key;
@@ -126,12 +95,11 @@ auto format_as(Context const& context) -> std::string {
                      context.salt, context.nonce, context.master_key);
 }
 
-auto Authorize(std::string_view master_password,
-               std::string_view passwords_file_path) -> Context {
+auto Authorize(std::string_view master_password, std::string_view vault_path)
+    -> Context {
   Context context{};
-  context.passwords_file_path = passwords_file_path;
-  context.salt = LoadOrGenerateSalt(passwords_file_path);
-  context.nonce = LoadOrGenerateNonce(passwords_file_path);
+  context.vault_path = vault_path;
+  LoadOrGenerateSaltAndNonce(vault_path, context.salt, context.nonce);
 
   int pwhash_status{crypto_pwhash(
       context.master_key.GetCPtr<unsigned char>(),
@@ -152,7 +120,7 @@ class PasswordsStore final {
  public:
   constexpr explicit PasswordsStore(Context const& context)
       : m_context{context} {
-    if (std::filesystem::exists(m_context.passwords_file_path)) {
+    if (std::filesystem::exists(m_context.vault_path)) {
       auto plain_text{LoadAndDecrypt()};
       m_passwords = uzleo::json::Parse(std::string_view{
           plain_text.GetCConstPtr<char const>(), rng::size(plain_text)});
@@ -226,32 +194,36 @@ class PasswordsStore final {
           fmt::format("encryption failed with status: {}", encryption_status));
     }
 
-    std::ofstream file_stream{m_context.passwords_file_path.data(),
-                              std::ios::binary};
-    file_stream.write(cipher_text.GetCConstPtr<char const>(),
-                      static_cast<std::streamsize>(rng::size(cipher_text)));
-    file_stream.close();
-
-    file_stream.open(config::GetNoncePath(m_context.passwords_file_path),
-                     std::ios::binary);
+    std::ofstream file_stream{m_context.vault_path.data(), std::ios::binary};
+    file_stream.write(m_context.salt.GetCConstPtr<char const>(),
+                      static_cast<std::streamsize>(rng::size(m_context.salt)));
     file_stream.write(m_context.nonce.GetCConstPtr<char const>(),
                       static_cast<std::streamsize>(rng::size(m_context.nonce)));
+    file_stream.write(cipher_text.GetCConstPtr<char const>(),
+                      static_cast<std::streamsize>(rng::size(cipher_text)));
   }
 
   [[nodiscard]] constexpr auto LoadAndDecrypt() const
       -> ByteBuffer<std::vector<std::byte>> {
     // load cipher-text from disk
-    std::ifstream file_stream{m_context.passwords_file_path.data(),
+    std::ifstream file_stream{m_context.vault_path.data(),
                               std::ios::binary bitor std::ios::ate};
     auto const file_size{file_stream.tellg()};
     file_stream.seekg(0);
-
-    ByteBuffer<std::vector<std::byte>> cipher_text;
-    cipher_text.resize(file_size);
-    file_stream.read(cipher_text.GetCPtr<char>(), file_size);
-    if (rng::size(cipher_text) < crypto_secretbox_MACBYTES) {
-      throw std::runtime_error{"Ciphertext too short."};
+    if (file_size <
+        static_cast<std::streamoff>(config::kSaltLength + config::kNonceLength +
+                                    crypto_secretbox_MACBYTES)) {
+      throw std::runtime_error{"Vault file too small."};
     }
+    file_stream.seekg(config::kSaltLength + config::kNonceLength,
+                      std::ios::beg);
+
+    auto const cipher_length{static_cast<std::size_t>(file_size) -
+                             (config::kSaltLength + config::kNonceLength)};
+    ByteBuffer<std::vector<std::byte>> cipher_text;
+    cipher_text.resize(cipher_length);
+    file_stream.read(cipher_text.GetCPtr<char>(),
+                     static_cast<std::streamsize>(cipher_length));
 
     // decrypt cipher-text to retrieve plain-text
     ByteBuffer<std::vector<std::byte>> plain_text;
