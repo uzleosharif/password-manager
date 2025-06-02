@@ -11,9 +11,6 @@ import uzleo.json;
 import std;
 import fmt;
 
-// TODO(uzleo): do error-handling around file-stream operations (saving,
-// loading)
-
 namespace rng = std::ranges;
 
 namespace config {
@@ -71,8 +68,21 @@ auto LoadOrGenerateSaltAndNonce(std::string_view vault_path, salt_t& salt,
                                 nonce_t& nonce) -> void {
   if (std::filesystem::exists(vault_path)) {
     std::ifstream file_stream{vault_path.data(), std::ios::binary};
+    if (not file_stream.is_open() or file_stream.fail()) {
+      throw std::runtime_error{
+          "Failed to open vault file for reading salt and nonce."};
+    }
+
     file_stream.read(salt.GetCPtr<char>(), rng::size(salt));
+    if (file_stream.gcount() != static_cast<std::streamsize>(rng::size(salt))) {
+      throw std::runtime_error{"Failed to read full salt from vault file."};
+    }
+
     file_stream.read(nonce.GetCPtr<char>(), rng::size(nonce));
+    if (file_stream.gcount() !=
+        static_cast<std::streamsize>(rng::size(nonce))) {
+      throw std::runtime_error{"Failed to read full nonce from vault file."};
+    }
   } else {
     rng::generate(salt, GenerateRandomByte);
     rng::generate(nonce, GenerateRandomByte);
@@ -195,12 +205,27 @@ class PasswordsStore final {
     }
 
     std::ofstream file_stream{m_context.vault_path.data(), std::ios::binary};
+    if (not file_stream.is_open() or file_stream.fail()) {
+      throw std::runtime_error{"Failed to open vault file for encryption."};
+    }
+
     file_stream.write(m_context.salt.GetCConstPtr<char const>(),
                       static_cast<std::streamsize>(rng::size(m_context.salt)));
+    if (file_stream.fail()) {
+      throw std::runtime_error{"Failed to write salt to vault file."};
+    }
+
     file_stream.write(m_context.nonce.GetCConstPtr<char const>(),
                       static_cast<std::streamsize>(rng::size(m_context.nonce)));
+    if (file_stream.fail()) {
+      throw std::runtime_error{"Failed to write nonce to vault file."};
+    }
+
     file_stream.write(cipher_text.GetCConstPtr<char const>(),
                       static_cast<std::streamsize>(rng::size(cipher_text)));
+    if (file_stream.fail()) {
+      throw std::runtime_error{"Failed to write cipher-text to vault file."};
+    }
   }
 
   [[nodiscard]] constexpr auto LoadAndDecrypt() const
@@ -208,15 +233,22 @@ class PasswordsStore final {
     // load cipher-text from disk
     std::ifstream file_stream{m_context.vault_path.data(),
                               std::ios::binary bitor std::ios::ate};
+    if (not file_stream.is_open() or file_stream.fail()) {
+      throw std::runtime_error{"Failed to open vault file for decryption."};
+    }
+
     auto const file_size{file_stream.tellg()};
-    file_stream.seekg(0);
     if (file_size <
         static_cast<std::streamoff>(config::kSaltLength + config::kNonceLength +
                                     crypto_secretbox_MACBYTES)) {
-      throw std::runtime_error{"Vault file too small."};
+      throw std::runtime_error{"Vault file too small or corrupted."};
     }
+
     file_stream.seekg(config::kSaltLength + config::kNonceLength,
                       std::ios::beg);
+    if (file_stream.fail()) {
+      throw std::runtime_error{"Failed to seek within vault file."};
+    }
 
     auto const cipher_length{static_cast<std::size_t>(file_size) -
                              (config::kSaltLength + config::kNonceLength)};
@@ -224,6 +256,9 @@ class PasswordsStore final {
     cipher_text.resize(cipher_length);
     file_stream.read(cipher_text.GetCPtr<char>(),
                      static_cast<std::streamsize>(cipher_length));
+    if (file_stream.gcount() != static_cast<std::streamsize>(cipher_length)) {
+      throw std::runtime_error{"Failed to read full cipher text from vault."};
+    }
 
     // decrypt cipher-text to retrieve plain-text
     ByteBuffer<std::vector<std::byte>> plain_text;
