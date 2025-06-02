@@ -12,19 +12,23 @@ namespace rng = std::ranges;
 
 namespace {
 
+auto ShowUsage() {
+  fmt::println("Usage:");
+  fmt::println(" add <key> <password>");
+  fmt::println(" get <key>");
+  fmt::println(" list");
+  fmt::println(" delete <key>");
+
+  throw std::invalid_argument{"Incorrect usage."};
+}
+
 auto GetArgs(int argc, char const** argv) {
   auto args_view{std::span(argv, argc) |
                  std::views::transform(
                      [](char const* arg) { return std::string_view{arg}; })};
 
   if (rng::size(args_view) < 2) {
-    fmt::println("Usage:");
-    fmt::println(" add <key> <password>");
-    fmt::println(" get <key>");
-    fmt::println(" list");
-    fmt::println(" delete <key>");
-
-    throw std::invalid_argument{"Incorrect usage."};
+    ShowUsage();
   }
 
   return args_view;
@@ -74,7 +78,7 @@ auto ProcessInput(auto args_view) {
   } else if (command == "delete" and rng::size(args_view) == 3) {
     password_store.Delete(args_view[2]);
   } else {
-    throw std::runtime_error{"unknown command."};
+    ShowUsage();
   }
 }
 
