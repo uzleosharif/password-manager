@@ -28,10 +28,26 @@ $ ninja -f build/build.ninja
 
 The built tool can be found as `build/upm`
 
+### Docker
+
+The CI configuration located at `.github/workflows/main.yml` builds the project
+inside a container. To reproduce the same steps locally:
+
+```bash
+# Fetch the container image used in CI
+docker pull ghcr.io/uzleosharif/linux-cxx26:latest
+
+# Build the project inside the container
+docker run --rm -v $(pwd):/workspace \
+  ghcr.io/uzleosharif/linux-cxx26:latest \
+  bash -c 'cd /workspace && modi && ninja -f build/build.ninja'
+```
+
+The resulting binary will appear at `build/upm`.
+
 ### cmake
 
-Should be fairly straightforward to use `clang++` (>v20) or `cmake` (>v4) to build the project. The 
-source are provided:
+Should be fairly straightforward to use `clang++` (>v20) or `cmake` (>v4) to build the project. The source files are provided:
 - `password_manager.cppm`
 - `main.cpp`
 
