@@ -56,8 +56,8 @@ The `upm` binary will be produced in `build/` just like a local build.
 
 ### cmake
 
-Should be fairly straightforward to use `clang++` (>v20) or `cmake` (>v4) to build the project. The 
-source are provided:
+Should be fairly straightforward to use `clang++` (>v20) or `cmake` (>v4) to build the project. The
+source files are provided:
 - `password_manager.cppm`
 - `main.cpp`
 
