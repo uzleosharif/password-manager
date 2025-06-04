@@ -1,5 +1,5 @@
 
-// SPDX-License_Identifier: MIT
+// SPDX-License-Identifier: MIT
 
 import password_manager;
 import std;
