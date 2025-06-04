@@ -39,13 +39,15 @@ auto PromptMasterPassword() {
 
   // disable echo on user entered input so that he/she can't see password while
   // typing it in
-  termios terminal_settings{};
-  tcgetattr(STDIN_FILENO, &terminal_settings);
-  terminal_settings.c_lflag and_eq (compl ECHO);
-  tcsetattr(STDIN_FILENO, TCSANOW, &terminal_settings);
+  termios old_settings{};
+  tcgetattr(STDIN_FILENO, &old_settings);
+  auto new_settings{old_settings};
+  new_settings.c_lflag and_eq (compl ECHO);
+  tcsetattr(STDIN_FILENO, TCSANOW, &new_settings);
 
   std::string password{};
   std::getline(std::cin, password);
+  tcsetattr(STDIN_FILENO, TCSANOW, &old_settings);
   fmt::println("");
 
   return password;

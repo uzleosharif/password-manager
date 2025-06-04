@@ -1,28 +1,46 @@
 name: C++ CI
 
+# Grant GITHUB_TOKEN permission to push to GHCR
+permissions:
+  contents: read
+  packages: write
+
 on:
   push:
     branches: [v2]
   pull_request:
+
+env:
+  REGISTRY: ghcr.io/uzleosharif
+  BASE_IMAGE: ghcr.io/uzleosharif/cpp-modules-base:v1.0.0
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository with submodules
+      # 1) Always check out submodules
+      - name: Checkout repository (with submodules)
         uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Create and use docker-container builder
+      # 2) Log in to GitHub Container Registry
+      - name: Log in to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io \
+                -u "${{ github.actor }}" \
+                --password-stdin
+
+      # 3) Create and bootstrap a named buildx builder
+      - name: Create and bootstrap buildx builder
         run: |
           docker buildx create --driver docker-container --use --name ci-builder
+          docker buildx inspect --bootstrap
 
-      - name: Use default buildx instance
-        run: docker buildx inspect --bootstrap
-
-      - name: Restore Docker build cache
+      # 4) Restore the on-disk BuildKit layer cache (if any)
+      - name: Restore Docker buildx cache
         uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
@@ -30,31 +48,47 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Build cpp-modules-base image
+      # 5) Build & PUSH the base image into GHCR
+      - name: Build and push cpp-modules-base to GHCR
         run: |
           docker buildx build \
-            --load \
+            --builder ci-builder \
+            --push \
             --cache-from type=local,src=/tmp/.buildx-cache \
             --cache-to type=local,dest=/tmp/.buildx-cache-new \
             -f dockers/cpp-modules-base/cpp_modules_base.dockerfile \
-            -t cpp-modules-base:v1.0.0 \
+            -t $BASE_IMAGE \
             .
 
-      - name: Move new Docker cache into place
+      # 6) Move the updated cache directory into place
+      - name: Move BuildKit cache after base
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
+      # 7) Build the final image (which now does “FROM $BASE_IMAGE”)
       - name: Build final image with libsodium
         run: |
-          docker build \
+          docker buildx build \
+            --builder ci-builder \
+            --load \
+            --cache-from type=local,src=/tmp/.buildx-cache \
+            --cache-to type=local,dest=/tmp/.buildx-cache-new \
             -f dockers/password-manager.dockerfile \
             -t cpp-final \
             .
 
-      - name: Run build and tests inside container
+      # 8) Move the cache again
+      - name: Move BuildKit cache after final
         run: |
-          docker run --rm -v ${{ github.workspace }}:/work -w /work \
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      # 9) Run your tests inside the newly built container
+      - name: Run build & tests inside container
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/work -w /work \
             -e LD_LIBRARY_PATH="/modules/lib/:/modules/lib/uzleo" \
             cpp-final \
             bash -c "cd test && modi && ninja -f build/build.ninja && ./build/upm_tests"
