@@ -20,23 +20,21 @@ This application provides a straightforward way to store, retrieve, and manage p
 
 ## Build
 
-### in-house build flow
+You can compile the project locally or inside the same Docker setup used by the
+CI workflow (see `.github/workflows/main.yml`).  Both approaches rely on the
+[modi](https://github.com/uzleosharif/module-builder) tool to generate the
+`build.ninja` file.
 
-Use [modi](https://github.com/uzleosharif/module-builder) tool.
+### Local build
 
-```
+```bash
 $ git clone <this repo>
-$ modi
-$ ninja -f build/build.ninja
+$ modi && ninja -f build/build.ninja
 ```
 
-The built tool can be found as `build/upm`
+The resulting `upm` binary will appear in `build/upm`.
 
-### Docker based build
-
-The CI workflow builds the tool inside Docker containers using
-`docker buildx` (see `.github/workflows/main.yml`).  The same steps can be run
-locally:
+### Docker build
 
 ```bash
 # build the base image with the modules toolchain
@@ -49,13 +47,12 @@ docker buildx build \
   -f dockers/password-manager.dockerfile \
   --load -t upm-final .
 
-# run the build and tests inside the container
+# run the build inside the container
 docker run --rm -v $(pwd):/work -w /work upm-final \
-  bash -c "cd test && modi && ninja -f build/build.ninja && ./build/upm_tests"
+  bash -c "modi && ninja -f build/build.ninja"
 ```
 
-This produces the `upm` binary in the `build/` directory just like the manual
-build.
+The `upm` binary will be produced in `build/` just like a local build.
 
 ### cmake
 
