@@ -2,6 +2,10 @@
 
 A simple, secure command-line password manager built with modern C++.
 
+The tool stores credentials in an encrypted JSON file and showcases the use of
+C++20 modules alongside the libsodium crypto library. It is intentionally small
+to keep the build and usage simple while still being practical.
+
 ## Overview
 
 This application provides a straightforward way to store, retrieve, and manage passwords from the command line.
@@ -27,6 +31,31 @@ $ ninja -f build/build.ninja
 ```
 
 The built tool can be found as `build/upm`
+
+### Docker based build
+
+The CI workflow builds the tool inside Docker containers using
+`docker buildx` (see `.github/workflows/main.yml`).  The same steps can be run
+locally:
+
+```bash
+# build the base image with the modules toolchain
+docker buildx build \
+  -f dockers/cpp-modules-base/cpp_modules_base.dockerfile \
+  -t cpp-modules-base .
+
+# build the final image containing the application
+docker buildx build \
+  -f dockers/password-manager.dockerfile \
+  --load -t upm-final .
+
+# run the build and tests inside the container
+docker run --rm -v $(pwd):/work -w /work upm-final \
+  bash -c "cd test && modi && ninja -f build/build.ninja && ./build/upm_tests"
+```
+
+This produces the `upm` binary in the `build/` directory just like the manual
+build.
 
 ### cmake
 
