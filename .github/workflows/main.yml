@@ -66,8 +66,23 @@ jobs:
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
+      # 6.5) Try to restore the built cpp-final image from cache
+      - name: Restore cached cpp-final image
+        id: cpp-image-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/cpp-final.tar
+          key: ${{ runner.os }}-cpp-final-${{ hashFiles('dockers/password-manager.dockerfile') }}
+          restore-keys: |
+            ${{ runner.os }}-cpp-final-
+
+      - name: Load cached cpp-final image
+        if: steps.cpp-image-cache.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/cpp-final.tar
+
       # 7) Build the final image (which now does “FROM $BASE_IMAGE”)
       - name: Build final image with libsodium
+        if: steps.cpp-image-cache.outputs.cache-hit != 'true'
         run: |
           docker buildx build \
             --builder ci-builder \
@@ -78,8 +93,21 @@ jobs:
             -t cpp-final \
             .
 
+      # 7.5) Save the built image to disk for caching
+      - name: Save cpp-final image
+        if: steps.cpp-image-cache.outputs.cache-hit != 'true'
+        run: docker save cpp-final -o /tmp/cpp-final.tar
+
+      - name: Cache cpp-final image
+        if: steps.cpp-image-cache.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: /tmp/cpp-final.tar
+          key: ${{ runner.os }}-cpp-final-${{ hashFiles('dockers/password-manager.dockerfile') }}
+
       # 8) Move the cache again
       - name: Move BuildKit cache after final
+        if: steps.cpp-image-cache.outputs.cache-hit != 'true'
         run: |
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
