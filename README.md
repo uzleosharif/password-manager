@@ -2,6 +2,10 @@
 
 A simple, secure command-line password manager built with modern C++.
 
+The tool stores credentials in an encrypted JSON file and showcases the use of
+C++20 modules alongside the libsodium crypto library. It is intentionally small
+to keep the build and usage simple while still being practical.
+
 ## Overview
 
 This application provides a straightforward way to store, retrieve, and manage passwords from the command line.
@@ -16,22 +20,44 @@ This application provides a straightforward way to store, retrieve, and manage p
 
 ## Build
 
-### in-house build flow
+You can compile the project locally or inside the same Docker setup used by the
+CI workflow (see `.github/workflows/main.yml`).  Both approaches rely on the
+[modi](https://github.com/uzleosharif/module-builder) tool to generate the
+`build.ninja` file.
 
-Use [modi](https://github.com/uzleosharif/module-builder) tool.
+### Local build
 
-```
+```bash
 $ git clone <this repo>
-$ modi
-$ ninja -f build/build.ninja
+$ modi && ninja -f build/build.ninja
 ```
 
-The built tool can be found as `build/upm`
+The resulting `upm` binary will appear in `build/upm`.
+
+### Docker build
+
+```bash
+# build the base image with the modules toolchain
+docker buildx build \
+  -f dockers/cpp-modules-base/cpp_modules_base.dockerfile \
+  -t cpp-modules-base .
+
+# build the final image containing the application
+docker buildx build \
+  -f dockers/password-manager.dockerfile \
+  --load -t upm-final .
+
+# run the build inside the container
+docker run --rm -v $(pwd):/work -w /work upm-final \
+  bash -c "modi && ninja -f build/build.ninja"
+```
+
+The `upm` binary will be produced in `build/` just like a local build.
 
 ### cmake
 
-Should be fairly straightforward to use `clang++` (>v20) or `cmake` (>v4) to build the project. The 
-source are provided:
+Should be fairly straightforward to use `clang++` (>v20) or `cmake` (>v4) to build the project. The
+source files are provided:
 - `password_manager.cppm`
 - `main.cpp`
 
