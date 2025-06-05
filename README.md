@@ -88,7 +88,16 @@ build build/upm: link build/main.o build/password_manager.o
 
 Before running the tool, set the environment-variable `UPM_PASSWORDS_FILE_PATH` 
 to point to the location of encrypted vault file on disk.
+
 For example, `export UPM_PASSWORDS_FILE_PATH="/home/user/.upm/vault.bin"`.
+
+### Libsodium Initialization
+
+The program uses the libsodium library for all cryptographic operations.
+`pm::PasswordsStore` initializes libsodium when it is first constructed and
+throws a `std::runtime_error` if initialization fails. If you reuse the code,
+make sure that a `PasswordsStore` instance is successfully created before using
+other libsodium APIs.
 
 The password manager is used through command-line arguments:
 
@@ -161,4 +170,3 @@ If you forget the master password, the vault can not be decrypted.
 ## License
 
 This project is licensed under the MIT License.
-

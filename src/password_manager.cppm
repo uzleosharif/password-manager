@@ -90,6 +90,10 @@ auto LoadOrGenerateSaltAndNonce(std::string_view vault_path, salt_t& salt,
 
 export namespace pm {
 
+inline bool g_libsodium_initialized{false};
+
+[[nodiscard]] auto IsLibsodiumInitialized() -> bool { return g_libsodium_initialized; }
+
 struct Context {
   std::string_view vault_path;
   salt_t salt;
@@ -127,6 +131,12 @@ class PasswordsStore final {
  public:
   constexpr explicit PasswordsStore(Context const& context)
       : m_context{context} {
+    if (!g_libsodium_initialized) {
+      if (sodium_init() < 0) {
+        throw std::runtime_error{"libsodium initialization failed"};
+      }
+      g_libsodium_initialized = true;
+    }
     if (std::filesystem::exists(m_context.vault_path)) {
       auto plain_text{LoadAndDecrypt()};
       m_passwords = uzleo::json::Parse(std::string_view{

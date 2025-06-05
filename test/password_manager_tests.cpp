@@ -23,6 +23,25 @@ auto const HasNonZero = [](auto const& buffer) {
   });
 };
 
+TEST_CASE("libsodium is initialized before cryptography functions are used",
+          "[Init]") {
+  auto vault_path_string = MakeTemporaryVault().string();
+
+  auto context = pm::Authorize("master", vault_path_string);
+  REQUIRE(context.vault_path == vault_path_string);
+
+  REQUIRE(sodium_init() == 1);
+}
+
+TEST_CASE("PasswordsStore initializes libsodium", "[Init]") {
+  auto vault_path_string = MakeTemporaryVault().string();
+
+  auto context = pm::Authorize("master", vault_path_string);
+  pm::PasswordsStore store(context);
+
+  REQUIRE(pm::IsLibsodiumInitialized());
+}
+
 }  // namespace
 
 TEST_CASE("Authorize generates salt+nonce and derives a master key",
