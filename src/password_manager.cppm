@@ -23,13 +23,6 @@ constexpr std::size_t kKeyLength{crypto_secretbox_KEYBYTES};
 
 namespace {
 
-auto GenerateRandomByte() -> std::byte {
-  static std::uniform_int_distribution<std::uint8_t> distr{};
-  static std::random_device device{};
-  static std::mt19937 engine{device()};
-  return std::byte{distr(engine)};
-}
-
 template <class T>
 concept CharLike = std::same_as<std::remove_cv_t<T>, char> or
                    std::same_as<std::remove_cv_t<T>, char8_t> or
@@ -40,7 +33,7 @@ template <class Parent>
 class ByteBuffer final : public Parent {
  public:
   template <CharLike T>
-  [[nodiscard]] auto GetCConstPtr() const -> T* {
+  [[nodiscard]] constexpr auto GetCConstPtr() const -> T* {
     // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
     static_assert(std::is_same_v<std::byte, typename Parent::value_type>,
                   "ByteBuffer must hold std::byte objects.");
@@ -50,13 +43,17 @@ class ByteBuffer final : public Parent {
   }
 
   template <CharLike T>
-  [[nodiscard]] auto GetCPtr() -> T* {
+  [[nodiscard]] constexpr auto GetCPtr() -> T* {
     // NOLINTBEGIN(cppcoreguidelines-pro-type-reinterpret-cast)
     static_assert(std::is_same_v<std::byte, typename Parent::value_type>,
                   "ByteBuffer must hold std::byte objects.");
     // NOTE: byte* to (char-like) T* is safe
     return reinterpret_cast<T*>(this->data());
     // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast)
+  }
+
+  constexpr auto RandomizeBytes() -> void {
+    randombytes_buf(this->data(), this->size());
   }
 };
 
@@ -84,8 +81,8 @@ auto LoadOrGenerateSaltAndNonce(std::string_view vault_path, salt_t& salt,
       throw std::runtime_error{"Failed to read full nonce from vault file."};
     }
   } else {
-    rng::generate(salt, GenerateRandomByte);
-    rng::generate(nonce, GenerateRandomByte);
+    salt.RandomizeBytes();
+    nonce.RandomizeBytes();
   }
 }
 
@@ -188,7 +185,7 @@ class PasswordsStore final {
     ByteBuffer<std::vector<std::byte>> cipher_text;
     cipher_text.resize(rng::size(plain_text) + crypto_secretbox_MACBYTES);
 
-    rng::generate(m_context.nonce, GenerateRandomByte);
+    m_context.nonce.RandomizeBytes();
 
     auto encryption_status{crypto_secretbox_easy(
         cipher_text.GetCPtr<unsigned char>(),
