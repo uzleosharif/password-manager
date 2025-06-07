@@ -4,6 +4,7 @@
 import password_manager;
 import std;
 import fmt;
+import crypto;
 
 #include <termios.h>
 #include <unistd.h>
@@ -53,7 +54,7 @@ auto PromptMasterPassword() {
   return password;
 }
 
-auto ExtractPasswordFilePath() -> std::string_view {
+auto ExtractVaultPath() -> std::string_view {
   std::string_view constexpr kPasswordsEnvVar{"UPM_PASSWORDS_FILE_PATH"};
 
   auto const* passwords_file_path{std::getenv(kPasswordsEnvVar.data())};
@@ -67,8 +68,8 @@ auto ExtractPasswordFilePath() -> std::string_view {
 }
 
 auto ProcessInput(auto args_view) {
-  pm::PasswordsStore password_store{
-      pm::Authorize(PromptMasterPassword(), ExtractPasswordFilePath())};
+  pm::PasswordsStore<pm::SodiumCrypto> password_store{PromptMasterPassword(),
+                                                      ExtractVaultPath()};
 
   auto command{args_view[1]};
   if (command == "add" and rng::size(args_view) == 4) {

@@ -2,6 +2,7 @@
 #include <catch2/catch_all.hpp>
 
 import password_manager;
+import crypto;
 import std;
 import fmt;
 
@@ -25,18 +26,6 @@ auto const HasNonZero = [](auto const& buffer) {
 
 }  // namespace
 
-TEST_CASE("Authorize generates salt+nonce and derives a master key",
-          "[Authorize]") {
-  auto vault_path_string = MakeTemporaryVault().string();
-  auto context = pm::Authorize("master", vault_path_string);
-
-  REQUIRE(context.vault_path == vault_path_string);
-  REQUIRE_FALSE(fs::exists(vault_path_string));
-  REQUIRE(HasNonZero(context.salt));
-  REQUIRE(HasNonZero(context.nonce));
-  REQUIRE(HasNonZero(context.master_key));
-}
-
 TEST_CASE("PasswordsStore persists added and deleted passwords",
           "[PasswordsStore]") {
   auto vault_path_string = MakeTemporaryVault().string();
@@ -46,8 +35,7 @@ TEST_CASE("PasswordsStore persists added and deleted passwords",
   std::uintmax_t size_after_delete = 0;
 
   {
-    auto context = pm::Authorize(master, vault_path_string);
-    pm::PasswordsStore store(context);
+    pm::PasswordsStore<pm::SodiumCrypto> store(master, vault_path_string);
 
     REQUIRE(fs::exists(vault_path_string));
     REQUIRE(store.Get("foo") == "bar");
@@ -64,8 +52,7 @@ TEST_CASE("PasswordsStore persists added and deleted passwords",
     REQUIRE_THROWS_AS(store.Get("foo"), std::out_of_range);
   }
 
-  auto context2 = pm::Authorize(master, vault_path_string);
-  pm::PasswordsStore store2(context2);
+  pm::PasswordsStore<pm::SodiumCrypto> store2(master, vault_path_string);
   REQUIRE(store2.Get("alpha") == "beta");
   REQUIRE_THROWS_AS(store2.Get("foo"), std::out_of_range);
   REQUIRE(fs::file_size(vault_path_string) == size_after_delete);

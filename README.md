@@ -136,27 +136,8 @@ Removes the password entry associated with the specified key.
 On first usage, the tool will prompt for a master password. It derives a
 key from that password plus a randomly generated salt. All data
 (salt, nonce, and ciphertext) is stored together in one file
-(e.g. `vault.bin`).
-
-- Vault file layout:
-```
-[salt] [nonce] [passwords-map (encrypted)]
-```
-
-- On first run:
-1. Generate random salt and nonce.
-2. Derive the master key from the salt and user-provided master password.
-3. Encrypt a dummy JSON store under a fresh nonce.
-4. Write `salt || nonce || cipher-text` to `vault.bin`
-
-- On subsequent runs:
-1. Read salt+nonce from the front of `vault.bin`.
-2. Derive the same key from salt+master-password.
-3. Decrypt the remaining ciphertext using that nonce.
-4. After any modification (add/delete), generate a new nonce, re-encrypt
-the JSON, and overwrite `vault.bin` with `salt || nonce || cipher-text`.
-
-If you forget the master password, the vault can not be decrypted.
+(e.g. `vault.bin`). If you forget the master password, the vault can not 
+be decrypted anymore.
 
 ## License
 
