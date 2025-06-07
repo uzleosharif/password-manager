@@ -12,7 +12,7 @@ on:
 
 env:
   REGISTRY: ghcr.io/uzleosharif
-  BASE_IMAGE: ghcr.io/uzleosharif/cpp-modules-base:v1.0.0
+  BASE_IMAGE: ghcr.io/uzleosharif/cpp-modules-base:v1.0.1
 
 jobs:
   build:
