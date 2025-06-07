@@ -1,12 +1,7 @@
 
 
-
 {
-  "src": {
-    "../src/utils.cppm": [],
-    "../src/password_manager.cppm": ["../src/utils.cppm"],
-    "password_manager_tests.cpp": ["../src/password_manager.cppm"]
-  },
+  "src": ["../src/utils.cppm", "../src/password_manager.cppm", "password_manager_tests.cpp"],
   "imp": ["std", "uzleo.json", "fmt"],
   "l": ["Catch2Main", "Catch2"],
   "e": "upm_tests"
