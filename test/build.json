@@ -1,8 +1,14 @@
 
 
 {
-  "src": ["../src/utils.cppm", "../src/password_manager.cppm", "password_manager_tests.cpp"],
+  "src": [
+    "../src/utils.cppm",
+    "../src/password_manager.cppm",
+    "../src/crypto.cppm",
+    "password_manager_tests.cpp",
+    "sodium_crypto_tests.cpp"
+  ],
   "imp": ["std", "uzleo.json", "fmt"],
-  "l": ["Catch2Main", "Catch2"],
+  "l": ["Catch2Main", "Catch2", "sodium"],
   "e": "upm_tests"
 }
