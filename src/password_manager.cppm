@@ -54,8 +54,8 @@ class PasswordsStore final {
     if (m_passwords.IsType<std::monostate>()) {
       fmt::println("{}", m_passwords);
     } else {
-      for (auto const& [key, password] : m_passwords.GetMap()) {
-        fmt::println("{} : {}", key, password.GetStringView());
+      for (auto const& key : m_passwords.GetMap() | rng::views::keys) {
+        fmt::println("{}", key);
       }
     }
   }
@@ -80,6 +80,12 @@ class PasswordsStore final {
   }
 
   constexpr auto Add(std::string_view key, std::string_view password) -> void {
+    if (std::ranges::any_of(m_passwords.GetMap(), [key](auto const& kvp) {
+          return kvp.first == key;
+        })) {
+      throw std::invalid_argument{fmt::format("key '{}' already exists", key)};
+    }
+
     json::Json::json_object_t new_passwords{};
     std::ranges::transform(
         m_passwords.GetMap(),

@@ -91,7 +91,7 @@ TEST_CASE("PasswordsStore persists added and deleted passwords",
     pm::PasswordsStore<MockCrypto> store(master, vault_path_string);
 
     REQUIRE(fs::exists(vault_path_string));
-    REQUIRE(store.Get("foo") == "bar");
+    REQUIRE_THROWS_AS(store.Get("baz"), std::out_of_range);
 
     auto size_initial = fs::file_size(vault_path_string);
     store.Add("alpha", "beta");
@@ -99,14 +99,15 @@ TEST_CASE("PasswordsStore persists added and deleted passwords",
     size_after_add = fs::file_size(vault_path_string);
     REQUIRE(size_after_add != size_initial);
 
-    store.Delete("foo");
+    REQUIRE_THROWS_AS(store.Add("alpha", "gamma"), std::invalid_argument);
+
+    store.Delete("alpha");
     size_after_delete = fs::file_size(vault_path_string);
     REQUIRE(size_after_delete != size_after_add);
-    REQUIRE_THROWS_AS(store.Get("foo"), std::out_of_range);
+    REQUIRE_THROWS_AS(store.Get("alpha"), std::out_of_range);
   }
 
   pm::PasswordsStore<MockCrypto> store2(master, vault_path_string);
-  REQUIRE(store2.Get("alpha") == "beta");
-  REQUIRE_THROWS_AS(store2.Get("foo"), std::out_of_range);
+  REQUIRE_THROWS_AS(store2.Get("alpha"), std::out_of_range);
   REQUIRE(fs::file_size(vault_path_string) == size_after_delete);
 }
