@@ -105,7 +105,8 @@ upm <command> [arguments]
 upm add <key> <password>
 ```
 
-Stores a new password under the specified key.
+Stores a new password under the specified key. The command fails if the key
+already exists in the vault.
 
 #### Retrieve a password
 

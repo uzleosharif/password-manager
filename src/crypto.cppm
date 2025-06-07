@@ -33,6 +33,9 @@ class SodiumCrypto final {
   auto operator=(SodiumCrypto&&) -> SodiumCrypto& = default;
 
   constexpr SodiumCrypto() {
+    if (sodium_init() < 0) {
+      throw std::runtime_error{"sodium_init failed"};
+    }
     randombytes_buf(m_salt.data(), kSaltSize);
     randombytes_buf(m_nonce.data(), kNonceSize);
   }
@@ -40,6 +43,9 @@ class SodiumCrypto final {
   constexpr SodiumCrypto(utils::StaticByteBuffer<kSaltSize> const& salt,
                          utils::StaticByteBuffer<kNonceSize> const& nonce)
       : m_salt{salt}, m_nonce{nonce} {
+    if (sodium_init() < 0) {
+      throw std::runtime_error{"sodium_init failed"};
+    }
   }
 
   constexpr auto Authorize(std::string_view master_password) -> void {
