@@ -91,7 +91,7 @@ TEST_CASE("PasswordsStore persists added and deleted passwords",
     pm::PasswordsStore<MockCrypto> store(master, vault_path_string);
 
     REQUIRE(fs::exists(vault_path_string));
-    REQUIRE_THROWS_AS(store.Get("baz"), std::out_of_range);
+    REQUIRE_THROWS_AS(store.Get("foo"), std::out_of_range);
 
     auto size_initial = fs::file_size(vault_path_string);
     store.Add("alpha", "beta");
