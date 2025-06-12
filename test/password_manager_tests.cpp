@@ -111,3 +111,18 @@ TEST_CASE("PasswordsStore persists added and deleted passwords",
   REQUIRE_THROWS_AS(store2.Get("alpha"), std::out_of_range);
   REQUIRE(fs::file_size(vault_path_string) == size_after_delete);
 }
+
+TEST_CASE("PasswordsStore can change master password", "[PasswordsStore]") {
+  auto vault_path_string = MakeTemporaryVault("vault_change_").string();
+
+  {
+    pm::PasswordsStore<MockCrypto> store{"oldpass", vault_path_string};
+    store.Add("key", "value");
+    store.ChangeMasterPassword("newpassword");
+  }
+
+  REQUIRE_THROWS(pm::PasswordsStore<MockCrypto>{"oldpass", vault_path_string});
+
+  pm::PasswordsStore<MockCrypto> reopened{"newpassword", vault_path_string};
+  REQUIRE(reopened.Get("key") == "value");
+}

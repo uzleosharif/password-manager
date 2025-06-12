@@ -102,6 +102,15 @@ upm delete <key>
 
 Removes the password entry associated with the specified key.
 
+#### Change the master password
+
+```bash
+upm change <new-master-password>
+```
+
+Re-encrypts the entire vault using the new master password. After running this
+command, the old password can no longer decrypt the vault.
+
 ### Flow
 
 On first usage, the tool will prompt for a master password. It derives a

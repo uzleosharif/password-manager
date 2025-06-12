@@ -102,6 +102,14 @@ class PasswordsStore final {
     SaveVault(m_crypto_library->Encrypt(fmt::format("{}", m_passwords)));
   }
 
+  constexpr auto ChangeMasterPassword(std::string_view new_password) -> void {
+    auto new_crypto = std::make_unique<CryptoLibrary>();
+    new_crypto->Authorize(new_password);
+
+    m_crypto_library = std::move(new_crypto);
+    SaveVault(m_crypto_library->Encrypt(fmt::format("{}", m_passwords)));
+  }
+
  private:
   [[nodiscard]] constexpr auto LoadVault() const
       -> std::tuple<salt_t, nonce_t, utils::DynamicByteBuffer> {
