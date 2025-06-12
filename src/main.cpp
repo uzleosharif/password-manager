@@ -19,6 +19,7 @@ auto ShowUsage() {
   fmt::println(" get <key>");
   fmt::println(" list");
   fmt::println(" delete <key>");
+  fmt::println(" change <new-master-password>");
 
   throw std::invalid_argument{"Incorrect usage."};
 }
@@ -80,6 +81,8 @@ auto ProcessInput(auto args_view) {
     password_store.List();
   } else if (command == "delete" and rng::size(args_view) == 3) {
     password_store.Delete(args_view[2]);
+  } else if (command == "change" and rng::size(args_view) == 3) {
+    password_store.ChangeMasterPassword(args_view[2]);
   } else {
     ShowUsage();
   }
