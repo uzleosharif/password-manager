@@ -1,6 +1,10 @@
 
 // SPDX-License-Identifier: MIT
 
+module;
+
+#include <sodium.h>
+
 export module utils;
 
 import std;

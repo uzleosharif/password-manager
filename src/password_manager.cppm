@@ -43,6 +43,9 @@ class PasswordsStore final {
       m_passwords = json::Parse(
           std::string_view(plain_text.template GetCConstPtr<char const>(),
                            rng::size(plain_text)));
+
+      // scrub out plain-text, as its contents are going to be deallocated as is
+      rng::fill(plain_text, std::byte{0});
     } else {
       m_crypto_library = std::make_unique<CryptoLibrary>();
       m_crypto_library->Authorize(master_password);
