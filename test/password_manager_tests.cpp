@@ -126,3 +126,21 @@ TEST_CASE("PasswordsStore can change master password", "[PasswordsStore]") {
   pm::PasswordsStore<MockCrypto> reopened{"newpassword", vault_path_string};
   REQUIRE(reopened.Get("key") == "value");
 }
+
+TEST_CASE("PasswordsStore generates and stores passwords", "[PasswordsStore]") {
+  auto vault_path_string = MakeTemporaryVault("vault_generate_").string();
+
+  pm::PasswordsStore<MockCrypto> store{"master", vault_path_string};
+  auto generated = store.Generate("gen", 12);
+
+  REQUIRE(generated.size() == 12);
+  REQUIRE(store.Get("gen") == generated);
+
+  std::string_view charset{"abc"};
+  auto gen2 = store.Generate("custom", 20, charset);
+  REQUIRE(gen2.size() == 20);
+  REQUIRE(store.Get("custom") == gen2);
+  REQUIRE(std::ranges::all_of(gen2, [charset](char c) {
+    return charset.find(c) != std::string_view::npos;
+  }));
+}

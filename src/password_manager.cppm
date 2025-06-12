@@ -1,6 +1,8 @@
 
 // SPDX-License-Identifier: MIT
 
+module;
+#include <sodium.h>
 export module password_manager;
 
 import uzleo.json;
@@ -100,6 +102,35 @@ class PasswordsStore final {
 
     m_passwords = json::Json{std::move(new_passwords)};
     SaveVault(m_crypto_library->Encrypt(fmt::format("{}", m_passwords)));
+  }
+
+  constexpr auto Generate(std::string_view key, std::size_t length = 16,
+                          std::string_view charset =
+                              "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+      -> std::string {
+    if (charset.empty()) {
+      throw std::invalid_argument{"charset must not be empty"};
+    }
+
+    if (std::ranges::any_of(m_passwords.GetMap(), [key](auto const& kvp) {
+          return kvp.first == key;
+        })) {
+      throw std::invalid_argument{fmt::format("key '{}' already exists", key)};
+    }
+
+    if (sodium_init() < 0) {
+      throw std::runtime_error{"sodium_init failed"};
+    }
+
+    std::string password;
+    password.resize(length);
+    for (std::size_t i = 0; i < length; ++i) {
+      auto idx = randombytes_uniform(static_cast<uint32_t>(charset.size()));
+      password[i] = charset[idx];
+    }
+
+    Add(key, password);
+    return password;
   }
 
   constexpr auto ChangeMasterPassword(std::string_view new_password) -> void {

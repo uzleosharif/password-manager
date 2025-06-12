@@ -20,6 +20,7 @@ auto ShowUsage() {
   fmt::println(" list");
   fmt::println(" delete <key>");
   fmt::println(" change <new-master-password>");
+  fmt::println(" generate <key> [length] [charset]");
 
   throw std::invalid_argument{"Incorrect usage."};
 }
@@ -83,6 +84,19 @@ auto ProcessInput(auto args_view) {
     password_store.Delete(args_view[2]);
   } else if (command == "change" and rng::size(args_view) == 3) {
     password_store.ChangeMasterPassword(args_view[2]);
+  } else if (command == "generate" and (rng::size(args_view) >= 3 &&
+                                         rng::size(args_view) <= 5)) {
+    std::size_t length = 16;
+    if (rng::size(args_view) >= 4) {
+      length = std::stoul(std::string{args_view[3]});
+    }
+    std::string_view charset =
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    if (rng::size(args_view) == 5) {
+      charset = args_view[4];
+    }
+    auto generated = password_store.Generate(args_view[2], length, charset);
+    fmt::println("{}", generated);
   } else {
     ShowUsage();
   }
