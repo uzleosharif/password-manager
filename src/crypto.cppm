@@ -12,8 +12,10 @@ import utils;
 import fmt;
 
 namespace {
+
 namespace utils = ::uzleo::utils;
 namespace rng = std::ranges;
+
 }  // namespace
 
 export namespace pm {
@@ -26,7 +28,12 @@ class SodiumCrypto final {
                                           crypto_secretbox_MACBYTES};
   static constexpr std::size_t kMasterKeySize{crypto_secretbox_KEYBYTES};
 
-  ~SodiumCrypto() = default;
+  ~SodiumCrypto() {
+    sodium_memzero(m_master_key.data(), rng::size(m_master_key));
+    sodium_memzero(m_salt.data(), rng::size(m_salt));
+    sodium_memzero(m_nonce.data(), rng::size(m_nonce));
+  }
+
   SodiumCrypto(SodiumCrypto const&) = delete;
   auto operator=(SodiumCrypto const&) = delete;
   SodiumCrypto(SodiumCrypto&&) = default;

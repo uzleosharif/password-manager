@@ -55,3 +55,14 @@ TEST_CASE("SodiumCrypto fails with wrong password", "[SodiumCrypto]") {
 
   REQUIRE_THROWS_AS(crypto_wrong.Decrypt(cipher), std::runtime_error);
 }
+
+TEST_CASE("SodiumCrypto wipes keys on destruction", "[SodiumCrypto]") {
+  using crypto_t = pm::SodiumCrypto;
+  alignas(crypto_t) std::array<std::byte, sizeof(crypto_t)> storage{};
+
+  auto* ptr = ::new (storage.data()) crypto_t();
+  ptr->Authorize("master");
+  ptr->~crypto_t();
+
+  REQUIRE(std::ranges::all_of(storage, [](std::byte b) { return b == std::byte{0}; }));
+}
