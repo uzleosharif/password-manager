@@ -54,36 +54,6 @@ docker run --rm -v $(pwd):/work -w /work upm-final \
 
 The `upm` binary will be produced in `build/` just like a local build.
 
-### cmake
-
-Should be fairly straightforward to use `clang++` (>v20) or `cmake` (>v4) to build the project. The
-source files are provided:
-- `password_manager.cppm`
-- `main.cpp`
-
-A sample `ninja` build file looks like:
-```
-cxx = clang++
-cxx_flags = -std=c++26 -stdlib=libc++ -O3
-module_flags = -fmodule-file=std=/modules/bmi/std.pcm -fmodule-file=uzleo.json=/modules/bmi/uzleo/json.pcm -fmodule-file=fmt=/modules/bmi/fmt.pcm  -fprebuilt-module-path=build/
-ld_flags =  -lsodium -ljson -lfmt -L/modules/lib/ -L/modules/lib/uzleo/ 
-rule cxx_module
-  command = $cxx $cxx_flags $module_flags -fmodule-output -MJ $out.json -c $in -o $out
-  description = Compiling module $in
-rule cxx_regular
-  command = $cxx $cxx_flags $module_flags -MJ $out.json -c $in -o $out
-  description = Compiling source $in
-rule link
-  command = $cxx $cxx_flags $module_flags @link.rsp $ld_flags -o $out
-  rspfile = link.rsp
-  rspfile_content = $in
-  description = Linking $out
-build build/main.o: cxx_regular main.cpp | build/password_manager.o 
-build build/password_manager.o: cxx_module password_manager.cppm
-build build/upm: link build/main.o build/password_manager.o 
-
-```
-
 ## Usage
 
 Before running the tool, set the environment-variable `UPM_PASSWORDS_FILE_PATH` 
