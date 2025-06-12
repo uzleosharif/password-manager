@@ -4,6 +4,7 @@
   "src": [
     "../src/utils.cppm",
     "../src/password_manager.cppm",
+    "../src/password_generator.cppm",
     "../src/crypto.cppm",
     "password_manager_tests.cpp",
     "sodium_crypto_tests.cpp"

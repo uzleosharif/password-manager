@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 import password_manager;
+import password_generator;
 import std;
 import fmt;
 import crypto;
@@ -19,6 +20,7 @@ auto ShowUsage() {
   fmt::println(" get <key>");
   fmt::println(" list");
   fmt::println(" delete <key>");
+  fmt::println(" generate <key> [length] [charset]");
 
   throw std::invalid_argument{"Incorrect usage."};
 }
@@ -80,6 +82,22 @@ auto ProcessInput(auto args_view) {
     password_store.List();
   } else if (command == "delete" and rng::size(args_view) == 3) {
     password_store.Delete(args_view[2]);
+  } else if (command == "generate" and
+             (rng::size(args_view) == 3 || rng::size(args_view) == 4 ||
+              rng::size(args_view) == 5)) {
+    std::size_t length = 0;
+    std::string_view charset = pm::kDefaultCharset;
+    if (rng::size(args_view) >= 4) {
+      length = std::stoull(std::string{args_view[3]});
+    } else {
+      length = pm::kDefaultLength;
+    }
+    if (rng::size(args_view) == 5) {
+      charset = args_view[4];
+    }
+    auto password = pm::GeneratePassword(length, charset);
+    password_store.Add(args_view[2], password);
+    fmt::println("{}", password);
   } else {
     ShowUsage();
   }

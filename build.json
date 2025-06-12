@@ -1,6 +1,6 @@
 
 {
-  "src": ["src/utils.cppm", "src/password_manager.cppm", "src/main.cpp", "src/crypto.cppm"],
+  "src": ["src/utils.cppm", "src/password_manager.cppm", "src/password_generator.cppm", "src/main.cpp", "src/crypto.cppm"],
   "imp": ["std", "uzleo.json", "fmt"],
   "l": ["sodium"],
   "e": "upm"

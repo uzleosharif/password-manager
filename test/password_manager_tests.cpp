@@ -2,6 +2,7 @@
 #include <catch2/catch_all.hpp>
 
 import password_manager;
+import password_generator;
 import utils;
 import std;
 
@@ -110,4 +111,21 @@ TEST_CASE("PasswordsStore persists added and deleted passwords",
   pm::PasswordsStore<MockCrypto> store2(master, vault_path_string);
   REQUIRE_THROWS_AS(store2.Get("alpha"), std::out_of_range);
   REQUIRE(fs::file_size(vault_path_string) == size_after_delete);
+}
+
+TEST_CASE("Generated passwords follow length and charset", "[PasswordGenerator]") {
+  constexpr std::string_view charset{"abc123"};
+  auto pass = pm::GeneratePassword(32, charset);
+  REQUIRE(pass.size() == 32);
+  REQUIRE(std::ranges::all_of(pass, [](char c) { return charset.find(c) != std::string_view::npos; }));
+}
+
+TEST_CASE("PasswordsStore stores generated password", "[PasswordGenerator][PasswordsStore]") {
+  auto vault_path_string = MakeTemporaryVault("vault_gen_").string();
+  pm::PasswordsStore<MockCrypto> store("master", vault_path_string);
+
+  auto generated = pm::GeneratePassword();
+  store.Add("gen", generated);
+
+  REQUIRE(store.Get("gen") == generated);
 }

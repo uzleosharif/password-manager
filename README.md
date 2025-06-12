@@ -102,6 +102,17 @@ upm delete <key>
 
 Removes the password entry associated with the specified key.
 
+#### Generate and store a password
+
+```bash
+upm generate <key> [length] [charset]
+```
+
+Creates a random password using libsodium's RNG and stores it under the
+specified key. The optional `length` argument controls password length (default
+16) and `charset` provides the allowed characters. If no charset is supplied, a
+mix of alphanumeric characters is used.
+
 ### Flow
 
 On first usage, the tool will prompt for a master password. It derives a
