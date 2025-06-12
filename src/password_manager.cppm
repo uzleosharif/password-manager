@@ -46,7 +46,7 @@ class PasswordsStore final {
     } else {
       m_crypto_library = std::make_unique<CryptoLibrary>();
       m_crypto_library->Authorize(master_password);
-      Add("foo", "bar");
+      SaveVault(m_crypto_library->Encrypt(fmt::format("{}", m_passwords)));
     }
   }
 
