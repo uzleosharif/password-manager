@@ -20,6 +20,7 @@ auto ShowUsage() {
   fmt::println(" list");
   fmt::println(" delete <key>");
   fmt::println(" change <new-master-password>");
+  fmt::println(" generate <key> [length] [charset]");
 
   throw std::invalid_argument{"Incorrect usage."};
 }
@@ -83,6 +84,26 @@ auto ProcessInput(auto args_view) {
     password_store.Delete(args_view[2]);
   } else if (command == "change" and rng::size(args_view) == 3) {
     password_store.ChangeMasterPassword(args_view[2]);
+  } else if (command == "generate" and
+             (rng::size(args_view) >= 3 and rng::size(args_view) <= 5)) {
+    std::size_t length{16};
+    if (rng::size(args_view) == 4) {
+      auto const [ptr, ec] = std::from_chars(rng::begin(args_view[3]),
+                                             rng::end(args_view[3]), length);
+      if (ec != std::errc{}) {
+        throw std::runtime_error{"Invalid length argument."};
+      }
+    }
+
+    std::string_view charset =
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    if (rng::size(args_view) == 5) {
+      charset = args_view[4];
+    }
+
+    auto generated_password{
+        password_store.Generate(args_view[2], length, charset)};
+    fmt::println("{}", generated_password);
   } else {
     ShowUsage();
   }

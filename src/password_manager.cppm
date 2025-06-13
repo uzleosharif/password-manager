@@ -1,6 +1,7 @@
 
 // SPDX-License-Identifier: MIT
 
+module;
 export module password_manager;
 
 import uzleo.json;
@@ -63,7 +64,8 @@ class PasswordsStore final {
     }
   }
 
-  [[nodiscard]] constexpr auto Get(std::string_view key) const {
+  [[nodiscard]] constexpr auto Get(std::string_view key) const
+      -> std::string_view {
     return m_passwords.GetMap().at(std::string{key}).GetStringView();
   }
 
@@ -100,6 +102,16 @@ class PasswordsStore final {
 
     m_passwords = json::Json{std::move(new_passwords)};
     SaveVault(m_crypto_library->Encrypt(fmt::format("{}", m_passwords)));
+  }
+
+  constexpr auto Generate(std::string_view key, std::size_t length,
+                          std::string_view charset) -> std::string_view {
+    if (m_passwords.Contains(key)) {
+      throw std::invalid_argument{fmt::format("key '{}' already exists", key)};
+    }
+
+    Add(key, m_crypto_library->GeneratePassword(length, charset));
+    return Get(key);
   }
 
   constexpr auto ChangeMasterPassword(std::string_view new_password) -> void {

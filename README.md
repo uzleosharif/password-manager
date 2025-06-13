@@ -17,6 +17,7 @@ This application provides a straightforward way to store, retrieve, and manage p
 - List all stored password keys
 - Delete password entries
 - Simple command-line interface
+- Generate random passwords
 
 ## Build
 
@@ -110,6 +111,16 @@ upm change <new-master-password>
 
 Re-encrypts the entire vault using the new master password. After running this
 command, the old password can no longer decrypt the vault.
+
+#### Generate a random password
+
+```bash
+upm generate <key> [length] [charset]
+```
+
+Creates a randomly generated password and stores it under
+the given key. The optional `length` parameter specifies the password length
+(default 16). You can also supply a custom character set via `charset`.
 
 ### Flow
 
