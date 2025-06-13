@@ -109,6 +109,23 @@ class SodiumCrypto final {
     return cipher_text;
   }
 
+  [[nodiscard]] constexpr auto GeneratePassword(std::size_t length,
+                                                std::string_view charset)
+      -> std::string {
+    if (charset.empty()) {
+      throw std::invalid_argument{"charset must not be empty"};
+    }
+
+    std::string password(length, '\0');
+    rng::generate_n(
+        rng::begin(password),
+        static_cast<std::iter_difference_t<std::string>>(length), [charset] {
+          return charset.at(randombytes_uniform(rng::size(charset)));
+        });
+
+    return password;
+  }
+
   [[nodiscard]] constexpr auto GetSalt() const -> std::span<std::byte const> {
     return m_salt;
   }
